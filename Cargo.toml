@@ -6,3 +6,4 @@ authors = ["Jeffrey Yu"]
 [dependencies]
 reqwest = "0.8.5"
 regex = "0.2"
+yaml-rust = "0.4"

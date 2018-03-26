@@ -1,40 +1,45 @@
 extern crate regex;
 extern crate reqwest;
+extern crate yaml_rust;
 
 use std::path::PathBuf;
 
 mod current_ip;
 mod settings;
+mod dnsimple;
 
 #[derive(Debug)]
 pub enum AppError {
     NoSettingsFile(PathBuf),
-    UnableToReadSettingsFile(PathBuf),
-    NoIpResponse(String),
-    MissingIpResponseText(String),
+    FailedToReadSettingsFile(PathBuf),
+    FailedToParseSettingsYaml(String),
+    InvalidSetting(String),
+    NoResponseFromIpService(String),
+    NoTextInIpServiceResponse(String),
     InvalidIpAddress(String),
+    UpdateFailed(String),
 }
 
 #[derive(Debug)]
 pub struct Settings {
-    pub account_id: String,
+    pub account_id: u64,
     pub access_token: String,
     pub domain: String,
     pub record: u64,
-    pub ttl: u64,
 }
 
 fn main() {
-    let settings = settings::load();
-    match settings {
-        Ok(configuration) => println!("Configuration: {:?}", configuration),
+    match update_record() {
+        Ok(success) => println!("Updated: {:?}", success),
         Err(error) => println!("Error: {:?}", error),
     }
+    println!("Sleeping 1 hour");
+    std::thread::sleep(std::time::Duration::from_secs(5));
+}
 
-    let current_ip = current_ip::fetch();
-    match current_ip {
-        Ok(ip) => println!("Ip: {}", ip),
-        Err(error) => println!("Error: {:?}", error),
-    }
+fn update_record() -> Result<String, AppError> {
+    let settings = settings::load()?;
+    let current_ip = current_ip::fetch()?;
+    dnsimple::update(&settings, &current_ip)
 }
 
