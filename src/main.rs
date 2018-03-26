@@ -4,17 +4,32 @@ extern crate reqwest;
 use std::path::PathBuf;
 
 mod current_ip;
+mod settings;
 
 #[derive(Debug)]
 pub enum AppError {
-    NoResponse(String),
-    MissingResponseText(String),
+    NoSettingsFile(PathBuf),
+    UnableToReadSettingsFile(PathBuf),
+    NoIpResponse(String),
+    MissingIpResponseText(String),
     InvalidIpAddress(String),
 }
 
+#[derive(Debug)]
+pub struct Settings {
+    pub account_id: String,
+    pub access_token: String,
+    pub domain: String,
+    pub record: u64,
+    pub ttl: u64,
+}
+
 fn main() {
-    let configuration_path = load_configuration_path();
-    println!("Configuration path: {:?}", configuration_path);
+    let settings = settings::load();
+    match settings {
+        Ok(configuration) => println!("Configuration: {:?}", configuration),
+        Err(error) => println!("Error: {:?}", error),
+    }
 
     let current_ip = current_ip::fetch();
     match current_ip {
@@ -23,9 +38,3 @@ fn main() {
     }
 }
 
-
-fn load_configuration_path() -> PathBuf {
-    use std::env;
-    let folder = env::home_dir().unwrap_or(PathBuf::from("."));
-    folder.join(".ddnsimple.yaml")
-}
