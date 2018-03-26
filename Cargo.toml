@@ -4,3 +4,5 @@ version = "0.1.0"
 authors = ["Jeffrey Yu"]
 
 [dependencies]
+reqwest = "0.8.5"
+regex = "0.2"
