@@ -33,7 +33,7 @@ fn main() {
         Ok(success) => println!("Updated: {:?}", success),
         Err(error) => println!("Error: {:?}", error),
     }
-    println!("Sleeping 1 hour");
+    println!("Sleeping: 1 hour");
     std::thread::sleep(std::time::Duration::from_secs(5));
 }
 
