@@ -52,6 +52,11 @@ fn read_settings_string() -> Result<String, AppError> {
 
 fn find_settings_path() -> PathBuf {
     use std::env;
-    let folder = env::home_dir().unwrap_or(PathBuf::from("."));
-    folder.join(".ddnsimple.yaml")
+    match env::var("DDNSIMPLE_SETTINGSFILE") {
+        Ok(string) => PathBuf::from(string.as_str()),
+        Err(_) => {
+            let folder = env::home_dir().unwrap_or(PathBuf::from("."));
+            folder.join(".ddnsimple.yaml")
+        }
+    }
 }
