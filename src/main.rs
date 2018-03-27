@@ -32,6 +32,20 @@ pub struct Settings {
     pub record: u64,
 }
 
+struct State {
+    pub count: Count,
+    pub rest_duration: Duration,
+}
+
+impl Default for State {
+    fn default() -> Self {
+        State {
+            count: Count::Infinity,
+            rest_duration: Duration::hours(4),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 enum Count {
     None,
@@ -43,42 +57,45 @@ impl Count {
     fn decrement(&self) -> Self {
         match self {
             &Count::None => Count::None,
-            &Count::One => Count::Infinity,
+            &Count::One => Count::None,
             &Count::Infinity => Count::Infinity,
         }
     }
 }
 
-struct State {
-    pub count: Count,
-    pub rest_duration: Duration,
-}
-
-impl Default for State {
-    fn default() -> Self {
-        State {
-            count: Count::One,
-            rest_duration: Duration::hours(4),
-        }
-    }
-}
-
 fn main() {
-    let mut state: State = Default::default();
+    let mut state = init_state();
     while state.count != Count::None {
+        let now = Local::now();
+        print_status("AWAKE", &format!("at: {}", now));
+
+
         let result = update_record();
         match result {
-            Ok(ok) => print_status("UPDATE", &format!("response: {:?}", ok)),
-            Err(err) => print_status("ERROR", &format!("{:?}", err)),
+            Ok(ok) => print_status("UPDATE", &format!("received: {:?}", ok)),
+            Err(err) => print_status("ERROR", &format!("failed with: {:?}", err)),
         }
 
         state.count = state.count.decrement();
         if state.count != Count::None {
-            let wake_time = Local::now() + state.rest_duration;
-            print_status("SLEEP", &format!("duration: {}s, wake time: {}", state.rest_duration.num_seconds(), wake_time));
+            let wake_time = now + state.rest_duration;
+            print_status("SLEEP", &format!("wake in: {}s, at: {}", state.rest_duration.num_seconds(), wake_time));
             std::thread::sleep(state.rest_duration.to_std().unwrap());
         }
     }
+}
+
+fn init_state() -> State {
+    let mut state: State = Default::default();
+    use clap::{App, Arg};
+    let matches = App::new("ddnsimple")
+        .about("Updates a dnsimple.com A record with the host's public ip address")
+        .arg(Arg::with_name("once").short("1").long("once").help("Stop after one update"))
+        .get_matches();
+    if matches.is_present("once") {
+        state.count = Count::One;
+    }
+    state
 }
 
 fn print_status(status: &str, detail: &str) {
