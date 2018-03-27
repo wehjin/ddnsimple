@@ -90,6 +90,7 @@ fn init_state() -> State {
     use clap::{App, Arg};
     let matches = App::new("ddnsimple")
         .about("Updates a dnsimple.com A record with the host's public ip address")
+        .version(env!("CARGO_PKG_VERSION"))
         .arg(Arg::with_name("once").short("1").long("once").help("Stop after one update"))
         .get_matches();
     if matches.is_present("once") {
