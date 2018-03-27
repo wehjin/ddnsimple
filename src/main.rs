@@ -1,7 +1,11 @@
+extern crate chrono;
+extern crate clap;
 extern crate regex;
 extern crate reqwest;
 extern crate yaml_rust;
 
+use chrono::Duration;
+use chrono::prelude::*;
 use std::path::PathBuf;
 
 mod current_ip;
@@ -28,13 +32,60 @@ pub struct Settings {
     pub record: u64,
 }
 
-fn main() {
-    match update_record() {
-        Ok(success) => println!("Updated: {:?}", success),
-        Err(error) => println!("Error: {:?}", error),
+#[derive(Debug, PartialEq, Eq)]
+enum Count {
+    None,
+    One,
+    Infinity,
+}
+
+impl Count {
+    fn decrement(&self) -> Self {
+        match self {
+            &Count::None => Count::None,
+            &Count::One => Count::Infinity,
+            &Count::Infinity => Count::Infinity,
+        }
     }
-    println!("Sleeping: 1 hour");
-    std::thread::sleep(std::time::Duration::from_secs(5));
+}
+
+struct State {
+    pub count: Count,
+    pub rest_duration: Duration,
+}
+
+impl Default for State {
+    fn default() -> Self {
+        State {
+            count: Count::One,
+            rest_duration: Duration::hours(4),
+        }
+    }
+}
+
+fn main() {
+    let mut state: State = Default::default();
+    while state.count != Count::None {
+        let result = update_record();
+        match result {
+            Ok(ok) => print_status("UPDATE", &format!("response: {:?}", ok)),
+            Err(err) => print_status("ERROR", &format!("{:?}", err)),
+        }
+
+        state.count = state.count.decrement();
+        if state.count != Count::None {
+            let wake_time = Local::now() + state.rest_duration;
+            print_status("SLEEP", &format!("duration: {}s, wake time: {}", state.rest_duration.num_seconds(), wake_time));
+            std::thread::sleep(state.rest_duration.to_std().unwrap());
+        }
+    }
+}
+
+fn print_status(status: &str, detail: &str) {
+    const MIN_STATUS_WIDTH: usize = 6;
+    let num_spaces = std::cmp::max(0, MIN_STATUS_WIDTH - status.len());
+    let spaces = " ".repeat(num_spaces);
+    println!("{}{}  {}", &spaces, status, detail);
 }
 
 fn update_record() -> Result<String, AppError> {
