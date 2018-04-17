@@ -3,6 +3,7 @@ extern crate clap;
 extern crate regex;
 extern crate reqwest;
 extern crate yaml_rust;
+extern crate serde_json;
 
 use chrono::Duration;
 use chrono::prelude::*;
@@ -21,7 +22,8 @@ pub enum AppError {
     NoResponseFromIpService(String),
     NoTextInIpServiceResponse(String),
     InvalidIpAddress(String),
-    UpdateFailed(String),
+    ReadRecordFailed(String),
+    UpdateRecordFailed(String),
 }
 
 #[derive(Debug)]
@@ -63,6 +65,12 @@ impl Count {
     }
 }
 
+#[derive(Eq, PartialEq, Debug)]
+enum Outcome {
+    Completed(String),
+    NotNeeded(String),
+}
+
 fn main() {
     let mut state = init_state();
     while state.count != Count::None {
@@ -72,7 +80,8 @@ fn main() {
 
         let result = update_record();
         match result {
-            Ok(ok) => print_status("UPDATE", &format!("received: {:?}", ok)),
+            Ok(Outcome::Completed(response)) => print_status("UPDATE", &format!("received: {:?}", response)),
+            Ok(Outcome::NotNeeded(response)) => print_status("SKIP", &format!("record matches ip: {:?}", response)),
             Err(err) => print_status("ERROR", &format!("failed with: {:?}", err)),
         }
 
@@ -101,14 +110,20 @@ fn init_state() -> State {
 
 fn print_status(status: &str, detail: &str) {
     const MIN_STATUS_WIDTH: usize = 6;
-    let num_spaces = std::cmp::max(0, MIN_STATUS_WIDTH - status.len());
+    let num_spaces = MIN_STATUS_WIDTH - std::cmp::min(MIN_STATUS_WIDTH, status.len());
     let spaces = " ".repeat(num_spaces);
     println!("{}{}  {}", &spaces, status, detail);
 }
 
-fn update_record() -> Result<String, AppError> {
+fn update_record() -> Result<Outcome, AppError> {
     let settings = settings::load()?;
+    let current_record = dnsimple::read_record_content(&settings)?;
     let current_ip = current_ip::fetch()?;
-    dnsimple::update(&settings, &current_ip)
+    if current_record == current_ip {
+        Ok(Outcome::NotNeeded(current_record))
+    } else {
+        dnsimple::update_record_content(&settings, &current_ip)
+            .map(|response| Outcome::Completed(response))
+    }
 }
 
